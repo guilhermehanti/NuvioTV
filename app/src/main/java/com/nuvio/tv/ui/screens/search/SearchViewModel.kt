@@ -198,8 +198,9 @@ class SearchViewModel @Inject constructor(
                 type = event.type
             )
             is SearchEvent.SelectDiscoverType -> selectDiscoverType(event.type)
-            is SearchEvent.SelectDiscoverCatalog -> selectDiscoverCatalog(event.catalogKey)
             is SearchEvent.SelectDiscoverGenre -> selectDiscoverGenre(event.genre)
+            is SearchEvent.SelectDiscoverCountry -> selectDiscoverCountry(event.country)
+            is SearchEvent.SelectDiscoverYear -> selectDiscoverYear(event.year)
             SearchEvent.LoadNextDiscoverResults -> loadNextDiscoverResults()
             SearchEvent.Retry -> {
                 // An explicit retry must refetch even though nothing about the request changed.
@@ -729,6 +730,14 @@ class SearchViewModel @Inject constructor(
                         .firstOrNull { it.name.equals("genre", ignoreCase = true) }
                         ?.options
                         .orEmpty()
+                    val countries = catalog.extra
+                        .firstOrNull { it.name.equals("country", ignoreCase = true) }
+                        ?.options
+                        .orEmpty()
+                    val years = catalog.extra
+                        .firstOrNull { it.name.equals("year", ignoreCase = true) }
+                        ?.options
+                        .orEmpty()
                     DiscoverCatalog(
                         key = "${addon.id}_${catalog.apiType}_${catalog.id}",
                         addonId = addon.id,
@@ -738,6 +747,8 @@ class SearchViewModel @Inject constructor(
                         catalogName = catalog.name,
                         type = catalog.apiType,
                         genres = genres,
+                        countries = countries,
+                        years = years,
                         supportsSkip = catalog.supportsExtra("skip"),
                         skipStep = catalog.skipStep()
                     )
@@ -753,6 +764,8 @@ class SearchViewModel @Inject constructor(
             preferredKey = _uiState.value.selectedDiscoverCatalogKey
         )
         val selectedGenre: String? = null
+        val selectedCountry: String? = null
+        val selectedYear: String? = null
 
         _uiState.update {
             it.copy(
@@ -761,6 +774,8 @@ class SearchViewModel @Inject constructor(
                 selectedDiscoverType = selectedType,
                 selectedDiscoverCatalogKey = selectedCatalog?.key,
                 selectedDiscoverGenre = selectedGenre,
+                selectedDiscoverCountry = selectedCountry,
+                selectedDiscoverYear = selectedYear,
                 discoverInitialized = true,
                 discoverLoading = false,
                 discoverResults = emptyList(),
@@ -780,11 +795,15 @@ class SearchViewModel @Inject constructor(
             preferredKey = _uiState.value.selectedDiscoverCatalogKey
         )
         val selectedGenre: String? = null
+        val selectedCountry: String? = null
+        val selectedYear: String? = null
         _uiState.update {
             it.copy(
                 selectedDiscoverType = type,
                 selectedDiscoverCatalogKey = selectedCatalog?.key,
                 selectedDiscoverGenre = selectedGenre,
+                selectedDiscoverCountry = selectedCountry,
+                selectedDiscoverYear = selectedYear,
                 discoverResults = emptyList(),
                 pendingDiscoverResults = emptyList(),
                 discoverPage = 1,
@@ -801,6 +820,8 @@ class SearchViewModel @Inject constructor(
                 selectedDiscoverCatalogKey = catalog.key,
                 selectedDiscoverType = catalog.type,
                 selectedDiscoverGenre = null,
+                selectedDiscoverCountry = null,
+                selectedDiscoverYear = null,
                 discoverResults = emptyList(),
                 pendingDiscoverResults = emptyList(),
                 discoverPage = 1,
@@ -814,6 +835,32 @@ class SearchViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 selectedDiscoverGenre = genre,
+                discoverResults = emptyList(),
+                pendingDiscoverResults = emptyList(),
+                discoverPage = 1,
+                discoverHasMore = true
+            )
+        }
+        fetchDiscoverContent(reset = true)
+    }
+
+    private fun selectDiscoverCountry(country: String?) {
+        _uiState.update {
+            it.copy(
+                selectedDiscoverCountry = country,
+                discoverResults = emptyList(),
+                pendingDiscoverResults = emptyList(),
+                discoverPage = 1,
+                discoverHasMore = true
+            )
+        }
+        fetchDiscoverContent(reset = true)
+    }
+
+    private fun selectDiscoverYear(year: String?) {
+        _uiState.update {
+            it.copy(
+                selectedDiscoverYear = year,
                 discoverResults = emptyList(),
                 pendingDiscoverResults = emptyList(),
                 discoverPage = 1,
@@ -880,6 +927,8 @@ class SearchViewModel @Inject constructor(
             val visibleCountBeforeRequest = state.discoverResults.size
             val extraArgs = buildMap<String, String> {
                 state.selectedDiscoverGenre?.takeIf { it.isNotBlank() }?.let { put("genre", it) }
+                state.selectedDiscoverCountry?.takeIf { it.isNotBlank() }?.let { put("country", it) }
+                state.selectedDiscoverYear?.takeIf { it.isNotBlank() }?.let { put("year", it) }
             }
 
             catalogRepository.getCatalog(

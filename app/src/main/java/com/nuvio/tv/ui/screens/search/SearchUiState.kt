@@ -36,6 +36,8 @@ data class SearchUiState(
     val selectedDiscoverType: String = "movie",
     val selectedDiscoverCatalogKey: String? = null,
     val selectedDiscoverGenre: String? = null,
+    val selectedDiscoverCountry: String? = null,
+    val selectedDiscoverYear: String? = null,
     val discoverResults: List<MetaPreview> = emptyList(),
     val pendingDiscoverResults: List<MetaPreview> = emptyList(),
     val discoverHasMore: Boolean = true,
@@ -60,6 +62,8 @@ data class DiscoverCatalog(
     val catalogName: String,
     val type: String,
     val genres: List<String>,
+    val countries: List<String>,
+    val years: List<String>,
     val supportsSkip: Boolean,
     val skipStep: Int
 )

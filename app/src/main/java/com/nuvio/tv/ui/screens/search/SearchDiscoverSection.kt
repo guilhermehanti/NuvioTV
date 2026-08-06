@@ -102,6 +102,8 @@ internal fun DiscoverSection(
     onSelectType: (String) -> Unit,
     onSelectCatalog: (String) -> Unit,
     onSelectGenre: (String?) -> Unit,
+    onSelectCountry: (String?) -> Unit,
+    onSelectYear: (String?) -> Unit,
     onLoadMore: () -> Unit,
     onItemLongPress: (MetaPreview, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
@@ -109,6 +111,8 @@ internal fun DiscoverSection(
     val selectedCatalog = uiState.discoverCatalogs.firstOrNull { it.key == uiState.selectedDiscoverCatalogKey }
     val filteredCatalogs = uiState.discoverCatalogs.filter { it.type == uiState.selectedDiscoverType }
     val genres = selectedCatalog?.genres.orEmpty()
+    val countries = selectedCatalog?.countries.orEmpty()
+    val years = selectedCatalog?.years.orEmpty()
     var expandedPicker by remember { mutableStateOf<String?>(null) }
     val filterFocusRequester = remember { FocusRequester() }
     var gridHasFocus by remember { mutableStateOf(false) }
@@ -126,6 +130,8 @@ internal fun DiscoverSection(
     val selectedTypeLabel = localizedTypeLabel(uiState.selectedDiscoverType)
     val selectedCatalogLabel = selectedCatalog?.catalogName ?: stringResource(R.string.discover_select_catalog)
     val selectedGenreLabel = uiState.selectedDiscoverGenre?.let { localizedGenreLabel(it) } ?: stringResource(R.string.discover_genre_default)
+    val selectedCountryLabel = uiState.selectedDiscoverCountry ?: stringResource(R.string.discover_country_default)
+    val selectedYearLabel = uiState.selectedDiscoverYear ?: stringResource(R.string.discover_year_default)
 
     Column(
         modifier = modifier
@@ -139,67 +145,121 @@ internal fun DiscoverSection(
             color = if (showBuiltInHeader) NuvioTheme.colors.TextPrimary else Color.Transparent
         )
 
-        Row(
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
+            verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
         ) {
-            DiscoverDropdownPicker(
-                modifier = Modifier.weight(1f)
-                    .focusRequester(filterFocusRequester),
-                title = stringResource(R.string.discover_filter_type),
-                value = selectedTypeLabel,
-                selectedValue = uiState.selectedDiscoverType,
-                expanded = expandedPicker == "type",
-                options = availableTypes.map { type ->
-                    val label = localizedTypeLabel(type)
-                    DiscoverOption(label, type)
-                },
-                onExpandedChange = { shouldExpand ->
-                    expandedPicker = if (shouldExpand) "type" else null
-                },
-                onSelect = { option ->
-                    onSelectType(option.value)
-                    expandedPicker = null
-                },
-                blockFocus = blockFilterFocus
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
+            ) {
+                DiscoverDropdownPicker(
+                    modifier = Modifier.weight(1f)
+                        .focusRequester(filterFocusRequester),
+                    title = stringResource(R.string.discover_filter_type),
+                    value = selectedTypeLabel,
+                    selectedValue = uiState.selectedDiscoverType,
+                    expanded = expandedPicker == "type",
+                    options = availableTypes.map { type ->
+                        val label = localizedTypeLabel(type)
+                        DiscoverOption(label, type)
+                    },
+                    onExpandedChange = { shouldExpand ->
+                        expandedPicker = if (shouldExpand) "type" else null
+                    },
+                    onSelect = { option ->
+                        onSelectType(option.value)
+                        expandedPicker = null
+                    },
+                    blockFocus = blockFilterFocus
+                )
 
-            DiscoverDropdownPicker(
-                modifier = Modifier.weight(1f),
-                title = stringResource(R.string.discover_filter_catalog),
-                value = selectedCatalogLabel,
-                selectedValue = uiState.selectedDiscoverCatalogKey,
-                expanded = expandedPicker == "catalog",
-                options = filteredCatalogs.map { DiscoverOption(it.catalogName, it.key) },
-                onExpandedChange = { shouldExpand ->
-                    expandedPicker = if (shouldExpand) "catalog" else null
-                },
-                onSelect = { option ->
-                    onSelectCatalog(option.value)
-                    expandedPicker = null
-                },
-                blockFocus = blockFilterFocus
-            )
+                DiscoverDropdownPicker(
+                    modifier = Modifier.weight(1f),
+                    title = stringResource(R.string.discover_filter_catalog),
+                    value = selectedCatalogLabel,
+                    selectedValue = uiState.selectedDiscoverCatalogKey,
+                    expanded = expandedPicker == "catalog",
+                    options = filteredCatalogs.map { DiscoverOption(it.catalogName, it.key) },
+                    onExpandedChange = { shouldExpand ->
+                        expandedPicker = if (shouldExpand) "catalog" else null
+                    },
+                    onSelect = { option ->
+                        onSelectCatalog(option.value)
+                        expandedPicker = null
+                    },
+                    blockFocus = blockFilterFocus
+                )
+            }
 
-            DiscoverDropdownPicker(
-                modifier = Modifier.weight(1f),
-                title = stringResource(R.string.discover_filter_genre),
-                value = selectedGenreLabel,
-                selectedValue = uiState.selectedDiscoverGenre ?: "__default__",
-                expanded = expandedPicker == "genre",
-                options = buildList {
-                    add(DiscoverOption(stringResource(R.string.discover_genre_default), "__default__"))
-                    addAll(genres.map { DiscoverOption(localizedGenreLabel(it), it) })
-                },
-                onExpandedChange = { shouldExpand ->
-                    expandedPicker = if (shouldExpand) "genre" else null
-                },
-                onSelect = { option ->
-                    onSelectGenre(option.value.takeUnless { it == "__default__" })
-                    expandedPicker = null
-                },
-                blockFocus = blockFilterFocus
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
+            ) {
+                DiscoverDropdownPicker(
+                    modifier = Modifier.weight(1f),
+                    title = stringResource(R.string.discover_filter_genre),
+                    value = selectedGenreLabel,
+                    selectedValue = uiState.selectedDiscoverGenre ?: "__default__",
+                    expanded = expandedPicker == "genre",
+                    options = buildList {
+                        add(DiscoverOption(stringResource(R.string.discover_genre_default), "__default__"))
+                        addAll(genres.map { DiscoverOption(localizedGenreLabel(it), it) })
+                    },
+                    onExpandedChange = { shouldExpand ->
+                        expandedPicker = if (shouldExpand) "genre" else null
+                    },
+                    onSelect = { option ->
+                        onSelectGenre(option.value.takeUnless { it == "__default__" })
+                        expandedPicker = null
+                    },
+                    blockFocus = blockFilterFocus
+                )
+
+                if (countries.isNotEmpty() || uiState.selectedDiscoverCountry != null) {
+                    DiscoverDropdownPicker(
+                        modifier = Modifier.weight(1f),
+                        title = stringResource(R.string.discover_filter_country),
+                        value = selectedCountryLabel,
+                        selectedValue = uiState.selectedDiscoverCountry ?: "__default__",
+                        expanded = expandedPicker == "country",
+                        options = buildList {
+                            add(DiscoverOption(stringResource(R.string.discover_country_default), "__default__"))
+                            addAll(countries.map { DiscoverOption(it, it) })
+                        },
+                        onExpandedChange = { shouldExpand ->
+                            expandedPicker = if (shouldExpand) "country" else null
+                        },
+                        onSelect = { option ->
+                            onSelectCountry(option.value.takeUnless { it == "__default__" })
+                            expandedPicker = null
+                        },
+                        blockFocus = blockFilterFocus
+                    )
+                }
+
+                if (years.isNotEmpty() || uiState.selectedDiscoverYear != null) {
+                    DiscoverDropdownPicker(
+                        modifier = Modifier.weight(1f),
+                        title = stringResource(R.string.discover_filter_year),
+                        value = selectedYearLabel,
+                        selectedValue = uiState.selectedDiscoverYear ?: "__default__",
+                        expanded = expandedPicker == "year",
+                        options = buildList {
+                            add(DiscoverOption(stringResource(R.string.discover_year_default), "__default__"))
+                            addAll(years.map { DiscoverOption(it, it) })
+                        },
+                        onExpandedChange = { shouldExpand ->
+                            expandedPicker = if (shouldExpand) "year" else null
+                        },
+                        onSelect = { option ->
+                            onSelectYear(option.value.takeUnless { it == "__default__" })
+                            expandedPicker = null
+                        },
+                        blockFocus = blockFilterFocus
+                    )
+                }
+            }
         }
 
         selectedCatalog?.let { catalog ->
@@ -211,6 +271,8 @@ internal fun DiscoverSection(
                         ?.let(::add)
                 }
                 uiState.selectedDiscoverGenre?.let { add(localizedGenreLabel(it)) }
+                uiState.selectedDiscoverCountry?.let { add(it) }
+                uiState.selectedDiscoverYear?.let { add(it) }
             }
             Text(
                 text = metadataSegments.joinToString(" • "),

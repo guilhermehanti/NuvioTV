@@ -1950,6 +1950,12 @@
     <string name="catalog_see_all_empty_subtitle">Tente outro catálogo ou volte mais tarde</string>
 
     <string name="layout_selection_welcome">Bem-vindo ao Nuvio</string>
+    <string name="discover_genre_default">Todos os Gêneros</string>
+    <string name="discover_filter_country">País</string>
+    <string name="discover_country_default">Todos os Países</string>
+    <string name="discover_filter_year">Ano</string>
+    <string name="discover_year_default">Todos os Anos</string>
+    <string name="discover_load_more">Carregar Mais</string>
     <string name="layout_selection_subtitle">Escolha o layout da sua tela inicial</string>
     <string name="layout_selection_continue">Continuar</string>
 

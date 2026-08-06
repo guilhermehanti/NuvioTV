@@ -2026,6 +2026,11 @@
     <string name="discover_filter_type">Type</string>
     <string name="discover_filter_catalog">Catalog</string>
     <string name="discover_filter_genre">Genre</string>
+    <string name="discover_genre_default">All Genres</string>
+    <string name="discover_filter_country">Country</string>
+    <string name="discover_country_default">All Countries</string>
+    <string name="discover_filter_year">Year</string>
+    <string name="discover_year_default">All Years</string>
     <string name="discover_select_catalog">Select</string>
     <string name="discover_genre_default">Default</string>
     <string name="discover_empty_no_catalog_title">Select a catalog</string>
