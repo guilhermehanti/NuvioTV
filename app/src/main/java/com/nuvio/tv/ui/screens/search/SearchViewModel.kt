@@ -200,7 +200,8 @@ class SearchViewModel @Inject constructor(
             is SearchEvent.SelectDiscoverType -> selectDiscoverType(event.type)
             is SearchEvent.SelectDiscoverGenre -> selectDiscoverGenre(event.genre)
             is SearchEvent.SelectDiscoverCountry -> selectDiscoverCountry(event.country)
-            is SearchEvent.SelectDiscoverYear -> selectDiscoverYear(event.year)
+            is SearchEvent.SelectDiscoverYearStart -> selectDiscoverYearStart(event.year)
+            is SearchEvent.SelectDiscoverYearEnd -> selectDiscoverYearEnd(event.year)
             SearchEvent.LoadNextDiscoverResults -> loadNextDiscoverResults()
             SearchEvent.Retry -> {
                 // An explicit retry must refetch even though nothing about the request changed.
@@ -730,14 +731,18 @@ class SearchViewModel @Inject constructor(
                         .firstOrNull { it.name.equals("genre", ignoreCase = true) }
                         ?.options
                         .orEmpty()
-                    val countries = catalog.extra
+                    val countriesRaw = catalog.extra
                         .firstOrNull { it.name.equals("country", ignoreCase = true) }
-                        ?.options
-                        .orEmpty()
-                    val years = catalog.extra
+                    val countries = if (countriesRaw != null) {
+                        countriesRaw.options?.takeIf { it.isNotEmpty() } ?: listOf(
+                            "US", "UK", "BR", "FR", "DE", "IT", "ES", "IN", "JP", "KR", "CN"
+                        )
+                    } else emptyList()
+                    val yearsRaw = catalog.extra
                         .firstOrNull { it.name.equals("year", ignoreCase = true) }
-                        ?.options
-                        .orEmpty()
+                    val years = if (yearsRaw != null) {
+                        yearsRaw.options?.takeIf { it.isNotEmpty() } ?: (java.time.LocalDate.now().year downTo 1900).map { it.toString() }
+                    } else emptyList()
                     DiscoverCatalog(
                         key = "${addon.id}_${catalog.apiType}_${catalog.id}",
                         addonId = addon.id,
@@ -765,7 +770,8 @@ class SearchViewModel @Inject constructor(
         )
         val selectedGenre: String? = null
         val selectedCountry: String? = null
-        val selectedYear: String? = null
+        val selectedYearStart: String? = null
+        val selectedYearEnd: String? = null
 
         _uiState.update {
             it.copy(
@@ -775,7 +781,8 @@ class SearchViewModel @Inject constructor(
                 selectedDiscoverCatalogKey = selectedCatalog?.key,
                 selectedDiscoverGenre = selectedGenre,
                 selectedDiscoverCountry = selectedCountry,
-                selectedDiscoverYear = selectedYear,
+                selectedDiscoverYearStart = selectedYearStart,
+                selectedDiscoverYearEnd = selectedYearEnd,
                 discoverInitialized = true,
                 discoverLoading = false,
                 discoverResults = emptyList(),
@@ -796,14 +803,16 @@ class SearchViewModel @Inject constructor(
         )
         val selectedGenre: String? = null
         val selectedCountry: String? = null
-        val selectedYear: String? = null
+        val selectedYearStart: String? = null
+        val selectedYearEnd: String? = null
         _uiState.update {
             it.copy(
                 selectedDiscoverType = type,
                 selectedDiscoverCatalogKey = selectedCatalog?.key,
                 selectedDiscoverGenre = selectedGenre,
                 selectedDiscoverCountry = selectedCountry,
-                selectedDiscoverYear = selectedYear,
+                selectedDiscoverYearStart = selectedYearStart,
+                selectedDiscoverYearEnd = selectedYearEnd,
                 discoverResults = emptyList(),
                 pendingDiscoverResults = emptyList(),
                 discoverPage = 1,
@@ -821,7 +830,8 @@ class SearchViewModel @Inject constructor(
                 selectedDiscoverType = catalog.type,
                 selectedDiscoverGenre = null,
                 selectedDiscoverCountry = null,
-                selectedDiscoverYear = null,
+                selectedDiscoverYearStart = null,
+                selectedDiscoverYearEnd = null,
                 discoverResults = emptyList(),
                 pendingDiscoverResults = emptyList(),
                 discoverPage = 1,
@@ -857,10 +867,23 @@ class SearchViewModel @Inject constructor(
         fetchDiscoverContent(reset = true)
     }
 
-    private fun selectDiscoverYear(year: String?) {
+    private fun selectDiscoverYearStart(year: String?) {
         _uiState.update {
             it.copy(
-                selectedDiscoverYear = year,
+                selectedDiscoverYearStart = year,
+                discoverResults = emptyList(),
+                pendingDiscoverResults = emptyList(),
+                discoverPage = 1,
+                discoverHasMore = true
+            )
+        }
+        fetchDiscoverContent(reset = true)
+    }
+
+    private fun selectDiscoverYearEnd(year: String?) {
+        _uiState.update {
+            it.copy(
+                selectedDiscoverYearEnd = year,
                 discoverResults = emptyList(),
                 pendingDiscoverResults = emptyList(),
                 discoverPage = 1,
@@ -928,7 +951,17 @@ class SearchViewModel @Inject constructor(
             val extraArgs = buildMap<String, String> {
                 state.selectedDiscoverGenre?.takeIf { it.isNotBlank() }?.let { put("genre", it) }
                 state.selectedDiscoverCountry?.takeIf { it.isNotBlank() }?.let { put("country", it) }
-                state.selectedDiscoverYear?.takeIf { it.isNotBlank() }?.let { put("year", it) }
+                
+                val start = state.selectedDiscoverYearStart?.takeIf { it.isNotBlank() }
+                val end = state.selectedDiscoverYearEnd?.takeIf { it.isNotBlank() }
+                if (start != null || end != null) {
+                    val yearRange = if (start != null && end != null && start == end) {
+                        start
+                    } else if (start != null || end != null) {
+                        "${start ?: ""}-${end ?: ""}"
+                    } else null
+                    yearRange?.let { put("year", it) }
+                }
             }
 
             catalogRepository.getCatalog(

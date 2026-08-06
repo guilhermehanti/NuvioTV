@@ -1953,8 +1953,9 @@
     <string name="discover_genre_default">Todos os Gêneros</string>
     <string name="discover_filter_country">País</string>
     <string name="discover_country_default">Todos os Países</string>
-    <string name="discover_filter_year">Ano</string>
-    <string name="discover_year_default">Todos os Anos</string>
+    <string name="discover_filter_year_start">Ano Inicial</string>
+    <string name="discover_filter_year_end">Ano Final</string>
+    <string name="discover_year_default">Qualquer</string>
     <string name="discover_load_more">Carregar Mais</string>
     <string name="layout_selection_subtitle">Escolha o layout da sua tela inicial</string>
     <string name="layout_selection_continue">Continuar</string>

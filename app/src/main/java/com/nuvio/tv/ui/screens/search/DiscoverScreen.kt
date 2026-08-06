@@ -123,9 +123,13 @@ fun DiscoverScreen(
                     discoverFocusedItemIndex = 0
                     viewModel.onEvent(SearchEvent.SelectDiscoverCountry(it))
                 },
-                onSelectYear = {
+                onSelectYearStart = {
                     discoverFocusedItemIndex = 0
-                    viewModel.onEvent(SearchEvent.SelectDiscoverYear(it))
+                    viewModel.onEvent(SearchEvent.SelectDiscoverYearStart(it))
+                },
+                onSelectYearEnd = {
+                    discoverFocusedItemIndex = 0
+                    viewModel.onEvent(SearchEvent.SelectDiscoverYearEnd(it))
                 },
                 onLoadMore = { viewModel.onEvent(SearchEvent.LoadNextDiscoverResults) },
                 onItemLongPress = { item, addonBaseUrl ->

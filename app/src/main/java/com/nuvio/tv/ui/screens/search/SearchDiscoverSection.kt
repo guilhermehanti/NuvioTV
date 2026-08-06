@@ -103,7 +103,8 @@ internal fun DiscoverSection(
     onSelectCatalog: (String) -> Unit,
     onSelectGenre: (String?) -> Unit,
     onSelectCountry: (String?) -> Unit,
-    onSelectYear: (String?) -> Unit,
+    onSelectYearStart: (String?) -> Unit,
+    onSelectYearEnd: (String?) -> Unit,
     onLoadMore: () -> Unit,
     onItemLongPress: (MetaPreview, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
@@ -131,7 +132,8 @@ internal fun DiscoverSection(
     val selectedCatalogLabel = selectedCatalog?.catalogName ?: stringResource(R.string.discover_select_catalog)
     val selectedGenreLabel = uiState.selectedDiscoverGenre?.let { localizedGenreLabel(it) } ?: stringResource(R.string.discover_genre_default)
     val selectedCountryLabel = uiState.selectedDiscoverCountry ?: stringResource(R.string.discover_country_default)
-    val selectedYearLabel = uiState.selectedDiscoverYear ?: stringResource(R.string.discover_year_default)
+    val selectedYearStartLabel = uiState.selectedDiscoverYearStart ?: stringResource(R.string.discover_year_default)
+    val selectedYearEndLabel = uiState.selectedDiscoverYearEnd ?: stringResource(R.string.discover_year_default)
 
     Column(
         modifier = modifier
@@ -238,22 +240,42 @@ internal fun DiscoverSection(
                     )
                 }
 
-                if (years.isNotEmpty() || uiState.selectedDiscoverYear != null) {
+                if (years.isNotEmpty() || uiState.selectedDiscoverYearStart != null || uiState.selectedDiscoverYearEnd != null) {
                     DiscoverDropdownPicker(
                         modifier = Modifier.weight(1f),
-                        title = stringResource(R.string.discover_filter_year),
-                        value = selectedYearLabel,
-                        selectedValue = uiState.selectedDiscoverYear ?: "__default__",
-                        expanded = expandedPicker == "year",
+                        title = stringResource(R.string.discover_filter_year_start),
+                        value = selectedYearStartLabel,
+                        selectedValue = uiState.selectedDiscoverYearStart ?: "__default__",
+                        expanded = expandedPicker == "year_start",
                         options = buildList {
                             add(DiscoverOption(stringResource(R.string.discover_year_default), "__default__"))
                             addAll(years.map { DiscoverOption(it, it) })
                         },
                         onExpandedChange = { shouldExpand ->
-                            expandedPicker = if (shouldExpand) "year" else null
+                            expandedPicker = if (shouldExpand) "year_start" else null
                         },
                         onSelect = { option ->
-                            onSelectYear(option.value.takeUnless { it == "__default__" })
+                            onSelectYearStart(option.value.takeUnless { it == "__default__" })
+                            expandedPicker = null
+                        },
+                        blockFocus = blockFilterFocus
+                    )
+
+                    DiscoverDropdownPicker(
+                        modifier = Modifier.weight(1f),
+                        title = stringResource(R.string.discover_filter_year_end),
+                        value = selectedYearEndLabel,
+                        selectedValue = uiState.selectedDiscoverYearEnd ?: "__default__",
+                        expanded = expandedPicker == "year_end",
+                        options = buildList {
+                            add(DiscoverOption(stringResource(R.string.discover_year_default), "__default__"))
+                            addAll(years.map { DiscoverOption(it, it) })
+                        },
+                        onExpandedChange = { shouldExpand ->
+                            expandedPicker = if (shouldExpand) "year_end" else null
+                        },
+                        onSelect = { option ->
+                            onSelectYearEnd(option.value.takeUnless { it == "__default__" })
                             expandedPicker = null
                         },
                         blockFocus = blockFilterFocus
@@ -272,7 +294,9 @@ internal fun DiscoverSection(
                 }
                 uiState.selectedDiscoverGenre?.let { add(localizedGenreLabel(it)) }
                 uiState.selectedDiscoverCountry?.let { add(it) }
-                uiState.selectedDiscoverYear?.let { add(it) }
+                if (uiState.selectedDiscoverYearStart != null || uiState.selectedDiscoverYearEnd != null) {
+                    add("${uiState.selectedDiscoverYearStart ?: "..."} - ${uiState.selectedDiscoverYearEnd ?: "..."}")
+                }
             }
             Text(
                 text = metadataSegments.joinToString(" • "),
