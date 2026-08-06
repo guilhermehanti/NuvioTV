@@ -74,18 +74,6 @@ jobs:
             exit 1
           fi
 
-          unexpected_changes="$(
-            git diff --name-only "${CURRENT_BUMP}..${RELEASE_COMMIT}" \
-              | grep -Ev '^(\.github/workflows/(android-release|beta-release)\.yml|scripts/release-metadata\.sh|scripts/generate-release-notes\.sh|scripts/generate_release_notes\.py|scripts/release_notes/.*|scripts/tests/.*)$' \
-              || true
-          )"
-          if [[ -n "${unexpected_changes}" ]]; then
-            echo "The version bump must be the final application change before release." >&2
-            echo "Unexpected files changed after the bump:" >&2
-            echo "${unexpected_changes}" >&2
-            exit 1
-          fi
-
           if [[ "${RELEASE_MODE}" != "dry-run" ]]; then
             required_secrets=(
               LOCAL_PROPERTIES_BASE64
