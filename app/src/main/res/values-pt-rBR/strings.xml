@@ -1987,7 +1987,6 @@
     <string name="discover_filter_catalog">Catálogo</string>
     <string name="discover_filter_genre">Gênero</string>
     <string name="discover_select_catalog">Selecionar</string>
-    <string name="discover_genre_default">Destaques</string>
     <string name="discover_empty_no_catalog_title">Escolha um catálogo</string>
     <string name="discover_empty_no_catalog_subtitle">Selecione uma categoria para navegar</string>
     <string name="discover_empty_no_content_title">Nenhum resultado encontrado</string>
