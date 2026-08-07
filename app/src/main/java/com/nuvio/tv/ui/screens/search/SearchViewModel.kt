@@ -198,6 +198,7 @@ class SearchViewModel @Inject constructor(
                 type = event.type
             )
             is SearchEvent.SelectDiscoverType -> selectDiscoverType(event.type)
+            is SearchEvent.SelectDiscoverCatalog -> selectDiscoverCatalog(event.catalogKey)
             is SearchEvent.SelectDiscoverGenre -> selectDiscoverGenre(event.genre)
             is SearchEvent.SelectDiscoverCountry -> selectDiscoverCountry(event.country)
             is SearchEvent.SelectDiscoverYearStart -> selectDiscoverYearStart(event.year)
@@ -828,6 +829,23 @@ class SearchViewModel @Inject constructor(
             it.copy(
                 selectedDiscoverCatalogKey = catalog.key,
                 selectedDiscoverType = catalog.type,
+                selectedDiscoverGenre = null,
+                selectedDiscoverCountry = null,
+                selectedDiscoverYearStart = null,
+                selectedDiscoverYearEnd = null,
+                discoverResults = emptyList(),
+                pendingDiscoverResults = emptyList(),
+                discoverPage = 1,
+                discoverHasMore = true
+            )
+        }
+        fetchDiscoverContent(reset = true)
+    }
+
+    private fun selectDiscoverCatalog(catalogKey: String) {
+        _uiState.update {
+            it.copy(
+                selectedDiscoverCatalogKey = catalogKey,
                 selectedDiscoverGenre = null,
                 selectedDiscoverCountry = null,
                 selectedDiscoverYearStart = null,
