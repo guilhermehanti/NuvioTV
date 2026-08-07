@@ -2033,7 +2033,6 @@
     <string name="discover_filter_year_end">End Year</string>
     <string name="discover_year_default">Any</string>
     <string name="discover_select_catalog">Select</string>
-    <string name="discover_genre_default">Default</string>
     <string name="discover_empty_no_catalog_title">Select a catalog</string>
     <string name="discover_empty_no_catalog_subtitle">Choose a discover catalog to browse</string>
     <string name="discover_empty_no_content_title">No content found</string>
