@@ -842,22 +842,6 @@ class SearchViewModel @Inject constructor(
         fetchDiscoverContent(reset = true)
     }
 
-    private fun selectDiscoverCatalog(catalogKey: String) {
-        _uiState.update {
-            it.copy(
-                selectedDiscoverCatalogKey = catalogKey,
-                selectedDiscoverGenre = null,
-                selectedDiscoverCountry = null,
-                selectedDiscoverYearStart = null,
-                selectedDiscoverYearEnd = null,
-                discoverResults = emptyList(),
-                pendingDiscoverResults = emptyList(),
-                discoverPage = 1,
-                discoverHasMore = true
-            )
-        }
-        fetchDiscoverContent(reset = true)
-    }
 
     private fun selectDiscoverGenre(genre: String?) {
         _uiState.update {
