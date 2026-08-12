@@ -131,7 +131,7 @@ internal fun DiscoverSection(
     val selectedTypeLabel = localizedTypeLabel(uiState.selectedDiscoverType)
     val selectedCatalogLabel = selectedCatalog?.catalogName ?: stringResource(R.string.discover_select_catalog)
     val selectedGenreLabel = uiState.selectedDiscoverGenre?.let { localizedGenreLabel(it) } ?: stringResource(R.string.discover_genre_default)
-    val selectedCountryLabel = uiState.selectedDiscoverCountry ?: stringResource(R.string.discover_country_default)
+    val selectedCountryLabel = uiState.selectedDiscoverCountry?.let { java.util.Locale("", it).displayCountry.takeIf { name -> name.isNotBlank() } ?: it } ?: stringResource(R.string.discover_country_default)
     val selectedYearStartLabel = uiState.selectedDiscoverYearStart ?: stringResource(R.string.discover_year_default)
     val selectedYearEndLabel = uiState.selectedDiscoverYearEnd ?: stringResource(R.string.discover_year_default)
 
@@ -227,7 +227,7 @@ internal fun DiscoverSection(
                         expanded = expandedPicker == "country",
                         options = buildList {
                             add(DiscoverOption(stringResource(R.string.discover_country_default), "__default__"))
-                            addAll(countries.map { DiscoverOption(it, it) })
+                            addAll(countries.map { DiscoverOption(java.util.Locale("", it).displayCountry.takeIf { name -> name.isNotBlank() } ?: it, it) })
                         },
                         onExpandedChange = { shouldExpand ->
                             expandedPicker = if (shouldExpand) "country" else null
