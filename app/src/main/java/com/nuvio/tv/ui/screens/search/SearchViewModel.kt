@@ -91,6 +91,12 @@ class SearchViewModel @Inject constructor(
     private var revealBatchAfterNextDiscoverFetch = false
     private var hideUnreleasedContent = false
 
+    /**
+     * Genre name → TMDB genre ID map, populated per media type when loading TMDB-native catalogs.
+     * Key: "movie" or "series", Value: map of genreName→genreId
+     */
+    private val tmdbGenreMap = mutableMapOf<String, Map<String, Int>>()
+
     private companion object {
         const val DISCOVER_INITIAL_LIMIT = 100
         const val DISCOVER_SHOW_MORE_BATCH = 50
@@ -785,10 +791,27 @@ class SearchViewModel @Inject constructor(
                 }
         }
 
+        // Fetch TMDB genres (movie + tv) to populate genre pickers on the TMDB-native catalogs.
+        val movieGenres = try {
+            tmdbApi.getMovieGenres(BuildConfig.TMDB_API_KEY).body()?.genres.orEmpty()
+        } catch (_: Exception) { emptyList() }
+        val tvGenres = try {
+            tmdbApi.getTvGenres(BuildConfig.TMDB_API_KEY).body()?.genres.orEmpty()
+        } catch (_: Exception) { emptyList() }
+
+        // Store genre name→ID maps for use in fetchDiscoverFromTmdb
+        tmdbGenreMap["movie"] = movieGenres.associate { it.name to it.id }
+        tmdbGenreMap["series"] = tvGenres.associate { it.name to it.id }
+
         // Append synthetic TMDB-native catalogs so country/year filters are always available,
         // backed by the TMDB Discover API regardless of which addons are installed.
         val tmdbCatalogs = listOf("movie", "series").map { mediaType ->
             val typeLabel = if (mediaType == "movie") "Filmes" else "Séries"
+            val genreNames = if (mediaType == "movie") {
+                movieGenres.map { it.name }.filter { it.isNotBlank() }
+            } else {
+                tvGenres.map { it.name }.filter { it.isNotBlank() }
+            }
             DiscoverCatalog(
                 key = "$TMDB_CATALOG_KEY_PREFIX$mediaType",
                 addonId = TMDB_CATALOG_ADDON_ID,
@@ -797,7 +820,7 @@ class SearchViewModel @Inject constructor(
                 catalogId = mediaType,
                 catalogName = "TMDB – $typeLabel",
                 type = mediaType,
-                genres = emptyList(),
+                genres = genreNames,
                 countries = ALL_COUNTRY_CODES,
                 years = ALL_YEARS,
                 supportsSkip = true,
@@ -1182,13 +1205,21 @@ class SearchViewModel @Inject constructor(
             _uiState.update { it.copy(discoverLoadingMore = true) }
         }
 
-        val currentPage = if (reset) 1 else state.discoverPage + 1
+        val currentPage = if (reset) 1 else (_uiState.value.discoverPage + 1).coerceAtLeast(2)
         val isTv = selectedCatalog.type.equals("series", ignoreCase = true) ||
             selectedCatalog.type.equals("tv", ignoreCase = true)
         val apiKey = BuildConfig.TMDB_API_KEY
         val country = state.selectedDiscoverCountry?.takeIf { it.isNotBlank() }
         val yearStart = state.selectedDiscoverYearStart?.takeIf { it.isNotBlank() }
         val yearEnd = state.selectedDiscoverYearEnd?.takeIf { it.isNotBlank() }
+
+        // Resolve genre name → TMDB genre ID for the with_genres parameter
+        val genreName = state.selectedDiscoverGenre?.takeIf { it.isNotBlank() }
+        val mediaTypeKey = if (isTv) "series" else "movie"
+        val genreId = genreName?.let { name ->
+            tmdbGenreMap[mediaTypeKey]?.get(name)
+        }
+        val withGenres = genreId?.toString()
 
         try {
             val response = if (isTv) {
@@ -1197,6 +1228,7 @@ class SearchViewModel @Inject constructor(
                     page = currentPage,
                     sortBy = "popularity.desc",
                     withOriginCountry = country,
+                    withGenres = withGenres,
                     firstAirDateGte = yearStart?.let { "$it-01-01" },
                     firstAirDateLte = yearEnd?.let { "$it-12-31" }
                 ).body()
@@ -1206,6 +1238,7 @@ class SearchViewModel @Inject constructor(
                     page = currentPage,
                     sortBy = "popularity.desc",
                     withOriginCountry = country,
+                    withGenres = withGenres,
                     releaseDateGte = yearStart?.let { "$it-01-01" },
                     releaseDateLte = yearEnd?.let { "$it-12-31" }
                 ).body()
