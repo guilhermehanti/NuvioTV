@@ -1,4 +1,4 @@
-package com.nuvio.tv.ui.screens.search
+﻿package com.nuvio.tv.ui.screens.search
 
 import androidx.compose.runtime.Immutable
 import com.nuvio.tv.domain.model.Addon
@@ -66,5 +66,7 @@ data class DiscoverCatalog(
     val countries: List<String>,
     val years: List<String>,
     val supportsSkip: Boolean,
-    val skipStep: Int
+    val skipStep: Int,
+    /** True when this catalog is backed by the TMDB Discover API natively (not a Stremio addon). */
+    val isTmdbNative: Boolean = false
 )

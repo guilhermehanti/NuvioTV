@@ -3,10 +3,12 @@ package com.nuvio.tv.ui.screens.search
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nuvio.tv.BuildConfig
 import com.nuvio.tv.R
 import com.nuvio.tv.core.network.NetworkResult
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
 import com.nuvio.tv.data.local.SearchHistoryDataStore
+import com.nuvio.tv.data.remote.api.TmdbApi
 import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.CatalogDescriptor
 import com.nuvio.tv.domain.model.CatalogRow
@@ -21,6 +23,7 @@ import com.nuvio.tv.core.util.filterReleasedItems
 import com.nuvio.tv.core.util.isUnreleased
 import com.nuvio.tv.domain.repository.AddonRepository
 import java.time.LocalDate
+import java.util.Locale
 import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.PosterShape
@@ -47,6 +50,7 @@ import javax.inject.Inject
 class SearchViewModel @Inject constructor(
     private val addonRepository: AddonRepository,
     private val catalogRepository: CatalogRepository,
+    private val tmdbApi: TmdbApi,
     private val layoutPreferenceDataStore: LayoutPreferenceDataStore,
     private val searchHistoryDataStore: SearchHistoryDataStore,
     private val watchProgressRepository: com.nuvio.tv.domain.repository.WatchProgressRepository,
@@ -54,6 +58,35 @@ class SearchViewModel @Inject constructor(
     val posterOptions: com.nuvio.tv.ui.components.posteroptions.PosterOptionsController,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
+
+    companion object {
+        /** Key prefix for the synthetic TMDB-native discover catalogs. */
+        const val TMDB_CATALOG_KEY_PREFIX = "__tmdb_native__"
+        private const val TMDB_CATALOG_ADDON_ID = "__tmdb__"
+        private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/"
+
+        /** All ISO-3166-1 alpha-2 country codes paired with their localized display names. */
+        val ALL_COUNTRIES: List<Pair<String, String>> by lazy {
+            Locale.getISOCountries()
+                .map { code -> code to (Locale("", code).displayCountry.takeIf { it.isNotBlank() } ?: code) }
+                .sortedBy { it.second }
+        }
+
+        /** All ISO-3166-1 codes as plain strings (for the DiscoverCatalog.countries list). */
+        val ALL_COUNTRY_CODES: List<String> by lazy { ALL_COUNTRIES.map { it.first } }
+
+        /** Years from current year down to 1900 as strings. */
+        val ALL_YEARS: List<String> by lazy {
+            (LocalDate.now().year downTo 1900).map { it.toString() }
+        }
+
+        /** Builds a TMDB poster URL from a TMDB poster_path like "/abc.jpg". */
+        fun tmdbPosterUrl(path: String?) =
+            path?.trim()?.takeIf { it.isNotBlank() }?.let { "${TMDB_IMAGE_BASE}w500$it" }
+
+        fun tmdbBackdropUrl(path: String?) =
+            path?.trim()?.takeIf { it.isNotBlank() }?.let { "${TMDB_IMAGE_BASE}w1280$it" }
+    }
 
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
@@ -755,11 +788,33 @@ class SearchViewModel @Inject constructor(
                 }
         }
 
-        val availableTypes = discoverCatalogs.map { it.type }.distinct()
+        // Append synthetic TMDB-native catalogs so country/year filters are always available,
+        // backed by the TMDB Discover API regardless of which addons are installed.
+        val tmdbCatalogs = listOf("movie", "series").map { mediaType ->
+            val typeLabel = if (mediaType == "movie") "Filmes" else "Séries"
+            DiscoverCatalog(
+                key = "$TMDB_CATALOG_KEY_PREFIX$mediaType",
+                addonId = TMDB_CATALOG_ADDON_ID,
+                addonName = "TMDB",
+                addonBaseUrl = "",
+                catalogId = mediaType,
+                catalogName = "TMDB – $typeLabel",
+                type = mediaType,
+                genres = emptyList(),
+                countries = ALL_COUNTRY_CODES,
+                years = ALL_YEARS,
+                supportsSkip = true,
+                skipStep = 20,
+                isTmdbNative = true
+            )
+        }
+        val allCatalogs = discoverCatalogs + tmdbCatalogs
+
+        val availableTypes = allCatalogs.map { it.type }.distinct()
         val currentType = _uiState.value.selectedDiscoverType
         val selectedType = if (currentType in availableTypes) currentType else availableTypes.firstOrNull() ?: "movie"
         val selectedCatalog = pickDiscoverCatalog(
-            catalogs = discoverCatalogs,
+            catalogs = allCatalogs,
             selectedType = selectedType,
             preferredKey = _uiState.value.selectedDiscoverCatalogKey
         )
@@ -771,7 +826,7 @@ class SearchViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 installedAddons = addons,
-                discoverCatalogs = discoverCatalogs,
+                discoverCatalogs = allCatalogs,
                 selectedDiscoverType = selectedType,
                 selectedDiscoverCatalogKey = selectedCatalog?.key,
                 selectedDiscoverGenre = selectedGenre,
@@ -925,6 +980,12 @@ class SearchViewModel @Inject constructor(
             if (state.query.trim().isNotEmpty()) return@launch
             val selectedCatalog = state.discoverCatalogs.firstOrNull { it.key == state.selectedDiscoverCatalogKey }
                 ?: return@launch
+
+            // Delegate to TMDB Discover API when the selected catalog is the TMDB-native one
+            if (selectedCatalog.isTmdbNative) {
+                fetchDiscoverFromTmdb(reset = reset, state = state, selectedCatalog = selectedCatalog)
+                return@launch
+            }
 
             if (reset) {
                 revealBatchAfterNextDiscoverFetch = false
@@ -1090,5 +1151,139 @@ class SearchViewModel @Inject constructor(
 
     private fun catalogKey(addonId: String, addonBaseUrl: String, type: String, catalogId: String): String {
         return catalogRowStableKey(addonId, addonBaseUrl, type, catalogId)
+    }
+
+    /**
+     * Fetches discover results directly from the TMDB Discover API.
+     * Called when [selectedCatalog].isTmdbNative is true.
+     *
+     * - Country filter: uses `with_origin_country` (e.g. "KR", "BR")
+     * - Year filter:    uses `primary_release_date.gte/lte` for movies,
+     *                        `first_air_date.gte/lte` for series
+     * - Genre filter:   uses `with_genres` (TMDB genre IDs resolved from names on demand)
+     *
+     * Results are mapped to [MetaPreview] with IDs prefixed "tmdb:" so the rest of the app
+     * can resolve the full metadata via the existing TMDB metadata layer.
+     */
+    private suspend fun fetchDiscoverFromTmdb(
+        reset: Boolean,
+        state: SearchUiState,
+        selectedCatalog: DiscoverCatalog
+    ) {
+        if (reset) {
+            revealBatchAfterNextDiscoverFetch = false
+            _uiState.update {
+                it.copy(
+                    discoverLoading = true,
+                    discoverResults = emptyList(),
+                    pendingDiscoverResults = emptyList(),
+                    discoverPage = 1,
+                    discoverHasMore = true
+                )
+            }
+        } else {
+            _uiState.update { it.copy(discoverLoadingMore = true) }
+        }
+
+        val currentPage = if (reset) 1 else state.discoverPage + 1
+        val isTv = selectedCatalog.type.equals("series", ignoreCase = true) ||
+            selectedCatalog.type.equals("tv", ignoreCase = true)
+        val apiKey = BuildConfig.TMDB_API_KEY
+        val country = state.selectedDiscoverCountry?.takeIf { it.isNotBlank() }
+        val yearStart = state.selectedDiscoverYearStart?.takeIf { it.isNotBlank() }
+        val yearEnd = state.selectedDiscoverYearEnd?.takeIf { it.isNotBlank() }
+
+        try {
+            val response = if (isTv) {
+                tmdbApi.discoverTv(
+                    apiKey = apiKey,
+                    page = currentPage,
+                    sortBy = "popularity.desc",
+                    withOriginCountry = country,
+                    firstAirDateGte = yearStart?.let { "$it-01-01" },
+                    firstAirDateLte = yearEnd?.let { "$it-12-31" }
+                ).body()
+            } else {
+                tmdbApi.discoverMovies(
+                    apiKey = apiKey,
+                    page = currentPage,
+                    sortBy = "popularity.desc",
+                    withOriginCountry = country,
+                    releaseDateGte = yearStart?.let { "$it-01-01" },
+                    releaseDateLte = yearEnd?.let { "$it-12-31" }
+                ).body()
+            }
+
+            val results = response?.results.orEmpty()
+            val totalPages = response?.totalPages ?: currentPage
+            val hasMore = currentPage < totalPages && results.isNotEmpty()
+
+            val incoming = results.filter { it.id > 0 }.mapNotNull { r ->
+                val title = r.title?.takeIf { it.isNotBlank() }
+                    ?: r.name?.takeIf { it.isNotBlank() }
+                    ?: r.originalTitle?.takeIf { it.isNotBlank() }
+                    ?: r.originalName?.takeIf { it.isNotBlank() }
+                    ?: return@mapNotNull null
+                val poster = tmdbPosterUrl(r.posterPath) ?: return@mapNotNull null
+                val releaseDate = if (isTv) r.firstAirDate else r.releaseDate
+                MetaPreview(
+                    id = "tmdb:${r.id}",
+                    type = if (isTv) ContentType.SERIES else ContentType.MOVIE,
+                    rawType = if (isTv) "series" else "movie",
+                    name = title,
+                    poster = poster,
+                    posterShape = PosterShape.POSTER,
+                    background = tmdbBackdropUrl(r.backdropPath),
+                    logo = null,
+                    description = r.overview?.takeIf { it.isNotBlank() },
+                    releaseInfo = releaseDate?.take(4),
+                    imdbRating = r.voteAverage?.toFloat(),
+                    genres = emptyList()
+                )
+            }
+
+            val existing = if (reset) {
+                emptyList()
+            } else {
+                _uiState.value.discoverResults + _uiState.value.pendingDiscoverResults
+            }
+            val existingKeys = existing.asSequence().map { it.id }.toSet()
+            val merged = if (reset) incoming else (existing + incoming)
+            val deduped = merged.distinctBy { it.id }
+
+            val visibleCountBeforeRequest = if (reset) 0 else _uiState.value.discoverResults.size
+            val visibleLimit = if (reset) {
+                DISCOVER_INITIAL_LIMIT
+            } else if (revealBatchAfterNextDiscoverFetch) {
+                (visibleCountBeforeRequest + DISCOVER_SHOW_MORE_BATCH).coerceAtLeast(DISCOVER_INITIAL_LIMIT)
+            } else {
+                visibleCountBeforeRequest.coerceAtLeast(DISCOVER_INITIAL_LIMIT)
+            }
+            val visible = deduped.take(visibleLimit)
+            val pending = deduped.drop(visibleLimit)
+
+            _uiState.update {
+                it.copy(
+                    discoverLoading = false,
+                    discoverLoadingMore = false,
+                    discoverResults = visible,
+                    pendingDiscoverResults = pending,
+                    discoverHasMore = hasMore,
+                    discoverPage = currentPage
+                )
+            }
+            revealBatchAfterNextDiscoverFetch = false
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            android.util.Log.w("SearchViewModel", "TMDB discover failed: ${e.message}")
+            _uiState.update {
+                it.copy(
+                    discoverLoading = false,
+                    discoverLoadingMore = false,
+                    discoverHasMore = false
+                )
+            }
+        }
     }
 }
