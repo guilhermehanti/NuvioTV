@@ -59,34 +59,6 @@ class SearchViewModel @Inject constructor(
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
-    companion object {
-        /** Key prefix for the synthetic TMDB-native discover catalogs. */
-        const val TMDB_CATALOG_KEY_PREFIX = "__tmdb_native__"
-        private const val TMDB_CATALOG_ADDON_ID = "__tmdb__"
-        private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/"
-
-        /** All ISO-3166-1 alpha-2 country codes paired with their localized display names. */
-        val ALL_COUNTRIES: List<Pair<String, String>> by lazy {
-            Locale.getISOCountries()
-                .map { code -> code to (Locale("", code).displayCountry.takeIf { it.isNotBlank() } ?: code) }
-                .sortedBy { it.second }
-        }
-
-        /** All ISO-3166-1 codes as plain strings (for the DiscoverCatalog.countries list). */
-        val ALL_COUNTRY_CODES: List<String> by lazy { ALL_COUNTRIES.map { it.first } }
-
-        /** Years from current year down to 1900 as strings. */
-        val ALL_YEARS: List<String> by lazy {
-            (LocalDate.now().year downTo 1900).map { it.toString() }
-        }
-
-        /** Builds a TMDB poster URL from a TMDB poster_path like "/abc.jpg". */
-        fun tmdbPosterUrl(path: String?) =
-            path?.trim()?.takeIf { it.isNotBlank() }?.let { "${TMDB_IMAGE_BASE}w500$it" }
-
-        fun tmdbBackdropUrl(path: String?) =
-            path?.trim()?.takeIf { it.isNotBlank() }?.let { "${TMDB_IMAGE_BASE}w1280$it" }
-    }
 
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
@@ -132,6 +104,31 @@ class SearchViewModel @Inject constructor(
 
         const val MAX_SUGGESTIONS = 8
         const val MAX_RECENT_SEARCHES = 8
+
+        /** Key prefix for the synthetic TMDB-native discover catalogs. */
+        const val TMDB_CATALOG_KEY_PREFIX = "__tmdb_native__"
+        private const val TMDB_CATALOG_ADDON_ID = "__tmdb__"
+        private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/"
+
+        /** All ISO-3166-1 alpha-2 country codes paired with their localized display names. */
+        val ALL_COUNTRY_CODES: List<String> by lazy {
+            Locale.getISOCountries()
+                .map { code -> code to (Locale("", code).displayCountry.takeIf { it.isNotBlank() } ?: code) }
+                .sortedBy { it.second }
+                .map { it.first }
+        }
+
+        /** Years from current year down to 1900 as strings. */
+        val ALL_YEARS: List<String> by lazy {
+            (LocalDate.now().year downTo 1900).map { it.toString() }
+        }
+
+        /** Builds a TMDB poster URL from a TMDB poster_path like "/abc.jpg". */
+        fun tmdbPosterUrl(path: String?) =
+            path?.trim()?.takeIf { it.isNotBlank() }?.let { "${TMDB_IMAGE_BASE}w500$it" }
+
+        fun tmdbBackdropUrl(path: String?) =
+            path?.trim()?.takeIf { it.isNotBlank() }?.let { "${TMDB_IMAGE_BASE}w1280$it" }
     }
 
     init {
