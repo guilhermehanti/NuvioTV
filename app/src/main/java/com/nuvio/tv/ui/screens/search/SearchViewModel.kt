@@ -1003,6 +1003,29 @@ class SearchViewModel @Inject constructor(
                         } else {
                             rawDeduped
                         }
+                        // Client-side country filter (addons don't universally support this server-side)
+                        val countryFilter = state.selectedDiscoverCountry?.takeIf { it.isNotBlank() }
+                        val yearStartFilter = state.selectedDiscoverYearStart?.takeIf { it.isNotBlank() }?.toIntOrNull()
+                        val yearEndFilter = state.selectedDiscoverYearEnd?.takeIf { it.isNotBlank() }?.toIntOrNull()
+                        val filtered = deduped.filter { item ->
+                            val countryOk = countryFilter == null || run {
+                                val itemCountry = item.country
+                                itemCountry != null && itemCountry.contains(countryFilter, ignoreCase = true)
+                            }
+                            val yearOk = (yearStartFilter == null && yearEndFilter == null) || run {
+                                val raw = item.releaseInfo?.trim()
+                                val itemYear = raw?.take(4)?.toIntOrNull()
+                                    ?: item.released?.take(4)?.toIntOrNull()
+                                if (itemYear == null) {
+                                    true // don't filter out items with no year data
+                                } else {
+                                    val afterStart = yearStartFilter == null || itemYear >= yearStartFilter
+                                    val beforeEnd = yearEndFilter == null || itemYear <= yearEndFilter
+                                    afterStart && beforeEnd
+                                }
+                            }
+                            countryOk && yearOk
+                        }
                         val shouldRevealBatch = !reset && revealBatchAfterNextDiscoverFetch
                         val visibleLimit = if (reset) {
                             DISCOVER_INITIAL_LIMIT
@@ -1012,8 +1035,8 @@ class SearchViewModel @Inject constructor(
                         } else {
                             visibleCountBeforeRequest.coerceAtLeast(DISCOVER_INITIAL_LIMIT)
                         }
-                        val visible = deduped.take(visibleLimit)
-                        val pending = deduped.drop(visibleLimit)
+                        val visible = filtered.take(visibleLimit)
+                        val pending = filtered.drop(visibleLimit)
                         val shouldStopPagination = !reset && !hasNewUniqueIncoming
                         _uiState.update {
                             it.copy(
