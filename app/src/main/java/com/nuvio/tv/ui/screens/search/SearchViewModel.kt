@@ -734,18 +734,10 @@ class SearchViewModel @Inject constructor(
                         .orEmpty()
                     val countriesRaw = catalog.extra
                         .firstOrNull { it.name.equals("country", ignoreCase = true) }
-                    val countries = if (countriesRaw != null) {
-                        countriesRaw.options?.takeIf { it.isNotEmpty() } ?: java.util.Locale.getISOCountries().toList()
-                    } else if (catalog.apiType == "movie" || catalog.apiType == "series") {
-                        java.util.Locale.getISOCountries().toList()
-                    } else emptyList()
+                    val countries = countriesRaw?.options.orEmpty()
                     val yearsRaw = catalog.extra
                         .firstOrNull { it.name.equals("year", ignoreCase = true) }
-                    val years = if (yearsRaw != null) {
-                        yearsRaw.options?.takeIf { it.isNotEmpty() } ?: (java.time.LocalDate.now().year downTo 1900).map { it.toString() }
-                    } else if (catalog.apiType == "movie" || catalog.apiType == "series") {
-                        (java.time.LocalDate.now().year downTo 1900).map { it.toString() }
-                    } else emptyList()
+                    val years = yearsRaw?.options.orEmpty()
                     DiscoverCatalog(
                         key = "${addon.id}_${catalog.apiType}_${catalog.id}",
                         addonId = addon.id,
