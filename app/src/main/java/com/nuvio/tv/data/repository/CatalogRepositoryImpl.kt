@@ -109,7 +109,7 @@ class CatalogRepositoryImpl @Inject constructor(
                 allArgs["skip"] = skip.toString()
             }
 
-            val encodedArgs = allArgs.entries.joinToString("&") { (key, value) ->
+            val encodedArgs = allArgs.entries.joinToString("/") { (key, value) ->
                 "${encodeArg(key)}=${encodeArg(value)}"
             }
 
